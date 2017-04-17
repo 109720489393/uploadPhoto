@@ -35,7 +35,7 @@ import java.util.Random;
  */
 public class PhotoSelectDialog extends Dialog implements View.OnClickListener {
 
-    public interface CropResultListener{
+    public interface CropResultListener {
         void cropResult(Uri uri);
     }
 
@@ -49,6 +49,8 @@ public class PhotoSelectDialog extends Dialog implements View.OnClickListener {
     private static final int SELECT_PIC_BY_TACK_PHOTO = 1;
     private static final int SELECT_PIC_BY_PICK_PHOTO = 2;
     private static final int CROP_RESULT = 3;
+    private static final int MY_PERMISSIONS_REQUEST_PICK_PHONE = 4;
+    private static final int MY_PERMISSIONS_REQUEST_TAKE_PHONE = 5;
 
     public PhotoSelectDialog(Activity activity) {
         super(activity, R.style.photoDialog);
@@ -64,42 +66,60 @@ public class PhotoSelectDialog extends Dialog implements View.OnClickListener {
         lp.width = display.getWidth(); // 设置宽度
         getWindow().setAttributes(lp);
     }
-    
-    private void initView(){
+
+    private void initView() {
         View contentView = LayoutInflater.from(mActivity).inflate(R.layout.widget_select_photo, null);
-        TextView takePhotoBtn = (TextView) contentView.findViewById(R.id.btn_take_photo);
-        TextView btnPickPhoto = (TextView) contentView.findViewById(R.id.btn_pick_photo);
+        TextView takePhotoBtn = (TextView) contentView.findViewById(R.id.tv_take_photo);
+        TextView btnPickPhoto = (TextView) contentView.findViewById(R.id.tv_pick_photo);
         TextView btnCancel = (TextView) contentView.findViewById(R.id.tv_cancel);
         takePhotoBtn.setOnClickListener(this);
         btnPickPhoto.setOnClickListener(this);
-        btnCancel .setOnClickListener(this);
+        btnCancel.setOnClickListener(this);
 
         setContentView(contentView);
     }
 
-    public void setCropResultListener(CropResultListener listener){
+    public void setCropResultListener(CropResultListener listener) {
         this.mListener = listener;
     }
 
     @Override
     public void onClick(View v) {
-        switch (v.getId()){
-            case R.id.btn_take_photo:
+        switch (v.getId()) {
+            case R.id.tv_take_photo:
                 if (Build.VERSION.SDK_INT >= 23) {
-                    int checkSelfPermission = ContextCompat.checkSelfPermission(mActivity, Manifest.permission.CAMERA);
-                    if (checkSelfPermission != PackageManager.PERMISSION_GRANTED) {
-                        ActivityCompat.requestPermissions(mActivity, new String[]{Manifest.permission.CAMERA}, 1);
-                        return;
+                    if (ContextCompat.checkSelfPermission(mActivity,
+                            Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                            != PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(mActivity,
+                            Manifest.permission.CAMERA)
+                            != PackageManager.PERMISSION_GRANTED) {
+                        ActivityCompat.requestPermissions(mActivity,
+                                new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.CAMERA},
+                                MY_PERMISSIONS_REQUEST_TAKE_PHONE);
+
                     } else {
                         takePhoto();
                     }
                 } else {
                     takePhoto();
                 }
-                    dismiss();
+                dismiss();
                 break;
-            case R.id.btn_pick_photo:
-                pickPhoto();
+            case R.id.tv_pick_photo:
+                if (Build.VERSION.SDK_INT >= 23) {
+                    if (ContextCompat.checkSelfPermission(mActivity,
+                            Manifest.permission.READ_EXTERNAL_STORAGE)
+                            != PackageManager.PERMISSION_GRANTED) {
+                        ActivityCompat.requestPermissions(mActivity,
+                                new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                                MY_PERMISSIONS_REQUEST_PICK_PHONE);
+
+                    } else {
+                        pickPhoto();
+                    }
+                } else {
+                    pickPhoto();
+                }
                 dismiss();
                 break;
             case R.id.tv_cancel:
@@ -121,7 +141,7 @@ public class PhotoSelectDialog extends Dialog implements View.OnClickListener {
             /** ----------------- */
             mActivity.startActivityForResult(intent, SELECT_PIC_BY_TACK_PHOTO);
         } else {
-            Toast.makeText(mActivity,"内存卡不存在",Toast.LENGTH_SHORT).show();
+            Toast.makeText(mActivity, "内存卡不存在", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -131,7 +151,6 @@ public class PhotoSelectDialog extends Dialog implements View.OnClickListener {
     private void pickPhoto() {
         File outputImage = new File(Environment.getExternalStorageDirectory(), "output_image.jpg");
         mImageUri = Uri.fromFile(outputImage);
-
         try {
             if (outputImage.exists()) {
                 outputImage.delete();
@@ -152,7 +171,7 @@ public class PhotoSelectDialog extends Dialog implements View.OnClickListener {
         }
         int r = new Random().nextInt(Integer.MAX_VALUE);
         File file = new File(Environment.getExternalStorageDirectory(),
-                "jh" + r + ".jpg");
+                "jhup" + r + ".jpg");
         mZoomUri = Uri.fromFile(file);
         Intent intent = new Intent("com.android.camera.action.CROP");
         intent.setDataAndType(uri, "image/*");
@@ -169,27 +188,51 @@ public class PhotoSelectDialog extends Dialog implements View.OnClickListener {
         mActivity.startActivityForResult(intent, CROP_RESULT);
     }
 
-    public void doPhoto(int requestCode, Intent data) {
+    public void doPhoto(int requestCode, int resultCode, Intent data) {
         if (requestCode == SELECT_PIC_BY_PICK_PHOTO) {
-            if (data == null) {
-               Toast.makeText(mActivity,"选择图片文件出错",Toast.LENGTH_SHORT).show();
-                return;
-            }
-            mImageUri = data.getData();
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-                String url= FileSizeUtil.getImageAbsolutePath(mActivity,mImageUri);
-                mImageUri = Uri.fromFile(new File(url));
-            }
-            if (mImageUri == null) {
-                Toast.makeText(mActivity,"选择图片文件出错",Toast.LENGTH_SHORT).show();
-                return;
-            }
-            if(mListener != null) {
-                mListener.cropResult(mImageUri);
+            if (resultCode == Activity.RESULT_OK) {
+                if (data == null) {
+                    Toast.makeText(mActivity, "选择图片文件出错", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                mImageUri = data.getData();
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                    String url = FileSizeUtil.getImageAbsolutePath(mActivity, mImageUri);
+                    mImageUri = Uri.fromFile(new File(url));
+                }
+                if (mImageUri == null) {
+                    Toast.makeText(mActivity, "选择图片文件出错", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                if (mListener != null) {
+                    mListener.cropResult(mImageUri);
+                }
             }
         } else if (requestCode == SELECT_PIC_BY_TACK_PHOTO) {
-            if(mListener != null) {
-                mListener.cropResult(mPhotoUri);
+            if (resultCode == Activity.RESULT_OK) {
+                if (mListener != null) {
+                    mListener.cropResult(mPhotoUri);
+                }
+            }
+        }
+    }
+
+    public void doPermissionResult(int requestCode, int[] grantResults) {
+        if (requestCode == MY_PERMISSIONS_REQUEST_PICK_PHONE) {
+            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                pickPhoto();
+            } else {
+                // Permission Denied
+                Toast.makeText(mActivity, "请在设置中开启存储权限", Toast.LENGTH_SHORT).show();
+            }
+        }
+
+        if (requestCode == MY_PERMISSIONS_REQUEST_TAKE_PHONE) {
+            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                takePhoto();
+            } else {
+                // Permission Denied
+                Toast.makeText(mActivity, "请在设置中开启拍照权限", Toast.LENGTH_SHORT).show();
             }
         }
     }
