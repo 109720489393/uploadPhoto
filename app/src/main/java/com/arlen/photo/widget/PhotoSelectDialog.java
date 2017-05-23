@@ -3,7 +3,6 @@ package com.arlen.photo.widget;
 import android.Manifest;
 import android.app.Activity;
 import android.app.Dialog;
-import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -28,6 +27,7 @@ import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Locale;
 import java.util.Random;
 
 /**
@@ -132,11 +132,21 @@ public class PhotoSelectDialog extends Dialog implements View.OnClickListener {
         String SDState = Environment.getExternalStorageState();
         if (SDState.equals(Environment.MEDIA_MOUNTED)) {
             Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);// "android.media.action.IMAGE_CAPTURE"
-            ContentValues values = new ContentValues();
-            SimpleDateFormat timeStampFormat = new SimpleDateFormat("yyyy_MM_dd_HH_mm_ss");
+//            ContentValues values = new ContentValues();
+            SimpleDateFormat timeStampFormat = new SimpleDateFormat("yyyy_MM_dd_HH_mm_ss", Locale.CHINA);
             String filename = timeStampFormat.format(new Date());
-            values.put(MediaStore.Video.Media.TITLE, filename);
-            mPhotoUri = mActivity.getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+//            values.put(MediaStore.Video.Media.TITLE, filename);
+//            mPhotoUri = mActivity.getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+            File outputImage = new File(Environment.getExternalStorageDirectory(), filename+".jpg");
+            mPhotoUri = Uri.fromFile(outputImage);
+            try {
+                if (outputImage.exists()) {
+                    outputImage.delete();
+                }
+                outputImage.createNewFile();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
             intent.putExtra(MediaStore.EXTRA_OUTPUT, mPhotoUri);
             /** ----------------- */
             mActivity.startActivityForResult(intent, SELECT_PIC_BY_TACK_PHOTO);
@@ -219,7 +229,7 @@ public class PhotoSelectDialog extends Dialog implements View.OnClickListener {
 
     public void doPermissionResult(int requestCode, int[] grantResults) {
         if (requestCode == MY_PERMISSIONS_REQUEST_PICK_PHONE) {
-            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            if (grantResults.length >0 &&grantResults[0]==PackageManager.PERMISSION_GRANTED) {
                 pickPhoto();
             } else {
                 // Permission Denied
@@ -228,7 +238,7 @@ public class PhotoSelectDialog extends Dialog implements View.OnClickListener {
         }
 
         if (requestCode == MY_PERMISSIONS_REQUEST_TAKE_PHONE) {
-            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            if (grantResults.length >0 &&grantResults[0]==PackageManager.PERMISSION_GRANTED) {
                 takePhoto();
             } else {
                 // Permission Denied
